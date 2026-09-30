@@ -197,6 +197,14 @@ fn plan_binary_with_cli_profile(
         existing += p;
     }
     let total = changes + existing;
+    if total == 0 && kind == TargetKind::LanguageServer {
+        return Ok(Plan {
+            data: output,
+            changes: 0,
+            existing: 0,
+            profile: "not-applicable".into(),
+        });
+    }
     if total == 0 || total > max_matches {
         return Err(format!(
             "Версия не поддерживается профилем {profile}: совпадений {}. SHA-256 {}",
@@ -340,6 +348,18 @@ fn legacy_backup_paths(path: &Path) -> Vec<std::path::PathBuf> {
     let mut appended = path.as_os_str().to_os_string();
     appended.push(".bak");
     paths.push(appended.into());
+    if let (Some(parent), Some(file_name)) = (path.parent(), path.file_name()) {
+        let prefix = format!("{}.bak", file_name.to_string_lossy());
+        if let Ok(entries) = fs::read_dir(parent) {
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str.starts_with(&prefix) && !paths.contains(&entry.path()) {
+                    paths.push(entry.path());
+                }
+            }
+        }
+    }
     paths
 }
 
@@ -375,7 +395,7 @@ pub fn patch_target(target: &FoundTarget) -> Result<PatchOutcome, String> {
     if p.changes == 0 {
         return if p.existing > 0 {
             Ok(PatchOutcome::AlreadyPatched)
-        } else if matches!(target.kind, TargetKind::IdeAsar) {
+        } else if matches!(target.kind, TargetKind::IdeAsar | TargetKind::LanguageServer) {
             Ok(PatchOutcome::NotApplicable)
         } else {
             Err("Версия/сигнатура не поддерживается; файл не изменён".into())
@@ -395,7 +415,7 @@ pub fn restore_target(target: &FoundTarget) -> Result<PatchOutcome, String> {
         return Ok(PatchOutcome::Restored);
     }
     let before = fs::read(&target.path).map_err(|e| e.to_string())?;
-    if matches!(target.kind, TargetKind::IdeAsar | TargetKind::IdeMainJs)
+    if matches!(target.kind, TargetKind::IdeAsar | TargetKind::IdeMainJs | TargetKind::LanguageServer)
         && plan(&before, target.kind).is_ok_and(|p| p.changes == 0 && p.existing == 0)
     {
         return Ok(PatchOutcome::NotApplicable);

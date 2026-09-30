@@ -76,6 +76,7 @@ pub(crate) fn plan_asar(data: &[u8]) -> Result<Plan, String> {
         profile: "asar-ide-reset-tier-v1".into(),
     };
     for name in [
+        "dist/main.js",
         "out/main.js",
         "out/vs/code/electron-main/main.js",
         "main.js",

@@ -10,8 +10,10 @@ use std::time::Duration;
 
 #[cfg(target_os = "macos")]
 pub const LISTEN_IP: &str = "127.0.0.1";
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
 pub const LISTEN_IP: &str = "127.0.0.53";
+#[cfg(all(unix, not(target_os = "macos")))]
+pub const LISTEN_IP: &str = "127.0.0.55";
 pub const LISTEN_PORT: u16 = 53;
 pub const HEALTH_PORT: u16 = 15353;
 pub const HEALTH_NAME: &str = "antigravity-relay-health.invalid";

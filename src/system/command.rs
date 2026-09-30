@@ -62,6 +62,8 @@ pub fn executable(program: &str) -> io::Result<PathBuf> {
         "killall" => "/usr/bin/killall",
         "dscacheutil" => "/usr/bin/dscacheutil",
         "stat" => "/usr/bin/stat",
+        "systemctl" => if std::path::Path::new("/bin/systemctl").exists() { "/bin/systemctl" } else { "/usr/bin/systemctl" },
+        "resolvectl" => if std::path::Path::new("/bin/resolvectl").exists() { "/bin/resolvectl" } else { "/usr/bin/resolvectl" },
         _ => {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,

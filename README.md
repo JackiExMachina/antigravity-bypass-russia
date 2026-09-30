@@ -7,9 +7,9 @@
 ### ⚡ Разблокировка Google Antigravity & Gemini 2.0 в России
 **Без VPN • Без смены страны Google-аккаунта • На полной скорости вашего интернета**
 
-[![Платформы](https://img.shields.io/badge/Платформа-Windows_10%2F11_•_macOS-0078D4.svg?style=flat-square&logo=windows&logoColor=white)](README.md)
+[![Платформы](https://img.shields.io/badge/Платформа-Windows_•_macOS_•_Linux-0078D4.svg?style=flat-square&logo=linux&logoColor=white)](README.md)
 [![Сеть](https://img.shields.io/badge/Сеть-VPN_не_нужен-2ea44f.svg?style=flat-square&logo=shield&logoColor=white)](README.md)
-[![Размер](https://img.shields.io/badge/Размер-1.08_МБ_(Rust)-8A2BE2.svg?style=flat-square&logo=rust&logoColor=white)](https://github.com/vezlin1/antigravity-bypass-russia/releases)
+[![Размер](https://img.shields.io/badge/Размер-1.08_МБ_(Rust)-8A2BE2.svg?style=flat-square&logo=rust&logoColor=white)](https://github.com/JackiExMachina/antigravity-bypass-russia/releases)
 [![Лицензия](https://img.shields.io/badge/Лицензия-MIT-informational.svg?style=flat-square)](LICENSE)
 
 <p align="center">
@@ -91,6 +91,23 @@
    sudo ./scripts/unlock_and_restore.sh
    ```
 2. В интерактивном меню выберите пункт **`1. Полная разблокировка`**. Скрипт настроит системный резолвер и снимет региональные ограничения.
+
+---
+
+### 🐧 Linux (Ubuntu / Debian / Arch / Fedora)
+
+1. Сборка и запуск:
+   ```bash
+   git clone https://github.com/JackiExMachina/antigravity-bypass-russia.git
+   cd antigravity-bypass-russia
+   cargo build --release
+   sudo ./target/release/antigravity-bypass-russia unlock
+   ```
+2. Основные команды:
+   - `sudo ./target/release/antigravity-bypass-russia unlock` — полная активация обхода (файлы + SmartDNS Split-DNS через `systemd-resolved` + служба релея `antigravity-dns.service`).
+   - `sudo ./target/release/antigravity-bypass-russia rollback` — 100% чистый откат сетевых настроек и восстановление оригинальных файлов.
+   - `./target/release/antigravity-bypass-russia status` — проверить текущий статус системы.
+   - `./target/release/antigravity-bypass-russia diagnostics` — тест доступности Google AI / Gemini API.
 
 ---
 

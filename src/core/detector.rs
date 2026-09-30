@@ -199,9 +199,12 @@ pub fn find_installations() -> Vec<PathBuf> {
             "/usr/share/antigravity",
             "/usr/share/antigravity-ide",
             "~/.local/share/antigravity",
+            "~/.local/share/antigravity-2.0",
             "~/.local/share/antigravity-ide",
             "~/.config/Antigravity",
             "~/.config/Antigravity IDE",
+            "~/Downloads/Antigravity/Antigravity-x64",
+            "~/Загрузки/Antigravity/Antigravity-x64",
         ];
         for c in candidates {
             let p = expand_env_vars(c);

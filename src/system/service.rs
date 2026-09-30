@@ -8,6 +8,8 @@ pub const FORWARDER_FLAG: &str = "--dns-forwarder";
 pub const TASK_NAME: &str = "AntigravityBypassRussia";
 pub const LAUNCHD_LABEL: &str = "com.antigravity.bypass.russia";
 pub const LAUNCHD_PLIST: &str = "/Library/LaunchDaemons/com.antigravity.bypass.russia.plist";
+pub const SYSTEMD_SERVICE: &str = "/etc/systemd/system/antigravity-dns.service";
+pub const SYSTEMD_UNIT_NAME: &str = "antigravity-dns.service";
 pub const EXE_NAME: &str = if cfg!(target_os = "windows") {
     "ag_dns.exe"
 } else {
@@ -228,7 +230,7 @@ pub fn registered_state() -> Result<bool, String> {
     }
     #[cfg(all(unix, not(target_os = "macos")))]
     {
-        Ok(false)
+        Ok(Path::new(SYSTEMD_SERVICE).exists())
     }
 }
 
@@ -632,6 +634,38 @@ pub fn enable() -> Result<(), String> {
         }
     }
 
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let unit_content = format!(
+            r#"[Unit]
+Description=Antigravity Bypass SmartDNS Relay
+After=network.target
+
+[Service]
+Type=simple
+ExecStart={} {}
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+"#,
+            dst.display(),
+            FORWARDER_FLAG
+        );
+
+        crate::system::fs_utils::robust_write_file(Path::new(SYSTEMD_SERVICE), unit_content.as_bytes())
+            .map_err(|e| format!("Не удалось записать unit службы: {e}"))?;
+
+        let _ = crate::system::command::output("systemctl", ["daemon-reload"]);
+        let out = crate::system::command::output("systemctl", ["enable", "--now", SYSTEMD_UNIT_NAME])
+            .map_err(|e| format!("Не удалось включить службу systemd: {e}"))?;
+        if !out.status.success() {
+            let err = String::from_utf8_lossy(&out.stderr);
+            return Err(format!("systemctl enable --now завершился ошибкой: {err}"));
+        }
+    }
+
     Ok(())
 }
 
@@ -661,7 +695,15 @@ pub fn start() -> Result<(), String> {
         }
     }
     #[cfg(all(unix, not(target_os = "macos")))]
-    Ok(())
+    {
+        let out = crate::system::command::output("systemctl", ["start", SYSTEMD_UNIT_NAME])
+            .map_err(|e| format!("Ошибка systemctl start: {e}"))?;
+        if out.status.success() {
+            Ok(())
+        } else {
+            Err(format!("systemctl start failed: {}", String::from_utf8_lossy(&out.stderr)))
+        }
+    }
 }
 
 pub fn disable() -> Result<(), String> {
@@ -679,6 +721,15 @@ pub fn disable() -> Result<(), String> {
         unload_mac_job()?;
         if Path::new(LAUNCHD_PLIST).exists() {
             fs::remove_file(LAUNCHD_PLIST).map_err(|e| format!("Удаление plist: {e}"))?;
+        }
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let _ = crate::system::command::output("systemctl", ["stop", SYSTEMD_UNIT_NAME]);
+        let _ = crate::system::command::output("systemctl", ["disable", SYSTEMD_UNIT_NAME]);
+        if Path::new(SYSTEMD_SERVICE).exists() {
+            let _ = fs::remove_file(SYSTEMD_SERVICE);
+            let _ = crate::system::command::output("systemctl", ["daemon-reload"]);
         }
     }
 

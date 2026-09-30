@@ -220,7 +220,12 @@ pub fn get_nrpt_status_info() -> (usize, Option<String>, bool) {
         (count, ns, is_relay)
     }
 
-    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        crate::net::linux_dns::status_info()
+    }
+
+    #[cfg(not(any(target_os = "windows", unix)))]
     (0, None, false)
 }
 

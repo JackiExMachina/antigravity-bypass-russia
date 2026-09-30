@@ -15,6 +15,8 @@ pub mod routes;
 pub mod socket;
 #[cfg(any(target_os = "macos", test))]
 pub mod split_dns;
+#[cfg(all(unix, not(target_os = "macos")))]
+pub mod linux_dns;
 
 pub use relay::{detach_console, log_fatal, run as run_dns_relay};
 
@@ -80,6 +82,8 @@ pub fn preflight() -> Result<(), String> {
     // Do not require a responsive loopback DNS port before configuring them.
     #[cfg(target_os = "macos")]
     split_dns::preflight(std::path::Path::new("/etc/resolver"), &nrpt_domains())?;
+    #[cfg(all(unix, not(target_os = "macos")))]
+    linux_dns::preflight(&nrpt_domains())?;
     Ok(())
 }
 
@@ -91,7 +95,11 @@ pub(super) fn flush_dns_cache() -> Result<(), String> {
         ("dscacheutil", &["-flushcache"]),
         ("killall", &["-HUP", "mDNSResponder"]),
     ];
-    #[cfg(not(any(windows, target_os = "macos")))]
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let commands: &[(&str, &[&str])] = &[
+        ("resolvectl", &["flush-caches"]),
+    ];
+    #[cfg(not(any(windows, unix)))]
     let commands: &[(&str, &[&str])] = &[];
     let mut errors = Vec::new();
     for (program, args) in commands {
@@ -264,6 +272,21 @@ pub fn apply_dns_rules() -> Result<NetworkSetup, String> {
     }
     #[cfg(target_os = "macos")]
     crate::system::service::disable()?;
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        step("Запускаем DNS-обход");
+        match crate::system::service::enable() {
+            Ok(()) => {
+                relay_ok = wait_for_ready(Duration::from_secs(4), relay_ready);
+                if !relay_ok {
+                    relay_note = "фоновый процесс не подтвердил готовность за 4с".into();
+                }
+            }
+            Err(e) => {
+                relay_note = format!("служба не запущена ({e})");
+            }
+        }
+    }
     // Readiness is local; separately verify that the DNS data path answers.
     if relay_ok && !relay_answers() {
         relay_ok = false;
@@ -293,12 +316,24 @@ pub fn apply_dns_rules() -> Result<NetworkSetup, String> {
     {
         split_dns::apply(std::path::Path::new("/etc/resolver"), &rules)?;
     }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        step("Сохраняем настройки Split-DNS");
+        linux_dns::apply(&rules)?;
+    }
     flush_dns_cache()?;
 
     let mut msg = if relay_ok {
         format!("Сеть настроена (релей {}:{})", LISTEN_IP, LISTEN_PORT)
     } else if cfg!(target_os = "macos") {
         "Сеть настроена (/etc/resolver, без фона)".to_string()
+    } else if cfg!(all(unix, not(target_os = "macos"))) {
+        if relay_note.is_empty() {
+            "Сеть настроена (Split-DNS systemd-resolved)".to_string()
+        } else {
+            format!("Сеть настроена (Split-DNS); {}", relay_note)
+        }
     } else if relay_note.is_empty() {
         "Сеть настроена".to_string()
     } else {
@@ -424,6 +459,12 @@ fn remove_dns_configuration(restore_tcp: bool) -> Result<(), String> {
             std::path::Path::new("/etc/resolver"),
             &nrpt_domains(),
         ));
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        if let Err(e) = linux_dns::remove() {
+            errors.push(e);
+        }
     }
     if let Err(error) = flush_dns_cache() {
         errors.push(error);
